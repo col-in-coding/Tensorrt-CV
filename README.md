@@ -1,7 +1,4 @@
-# Tensorrt-CV
-
-### TensorRT 踩坑日志（Bullshit Diary）
-
+# TensorRT 踩坑日志（Bullshit Diary）
 
 <b><i>2020-11-08:  </i></b>  
 Description:  
