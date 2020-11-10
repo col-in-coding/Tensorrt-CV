@@ -6,6 +6,7 @@ import pycuda.autoinit
 import numpy as np
 import tensorrt as trt
 import common
+import os.path
 from torchvision import models
 from albumentations import Resize, Compose
 from albumentations.pytorch.transforms import ToTensor
@@ -13,6 +14,8 @@ from albumentations.augmentations.transforms import Normalize
 
 # logger to capture errors, warnings, and other information during the build and inference phases
 TRT_LOGGER = trt.Logger()
+ONNX_FILE_PATH = 'resnet50.onnx'
+ENGINE_FILE_PATH = "resnet50.engine"
 
 
 def preprocess_image(img_path):
@@ -85,8 +88,16 @@ def build_engine(onnx_file_path):
         builder.fp16_mode = True
     # generate TensorRT engine optimized for the target platform
     print('Building an engine...')
-    # network.mark_output(network.get_layer(network.num_layers - 1).get_output(0))
-    engine = builder.build_cuda_engine(network)
+    if os.path.isfile(ENGINE_FILE_PATH):
+        with open(ENGINE_FILE_PATH, "rb") as f, trt.Runtime(TRT_LOGGER) as runtime:
+            engine = runtime.deserialize_cuda_engine(f.read())
+    else:
+        # network.mark_output(network.get_layer(network.num_layers - 1).get_output(0))
+        engine = builder.build_cuda_engine(network)
+        with open(ENGINE_FILE_PATH, "wb") as f:
+            f.write(engine.serialize())
+
+    print("Building context")
     context = engine.create_execution_context()
     print("Completed creating Engine")
 
@@ -128,20 +139,20 @@ def onnx2tensorrt(onnx_file_path):
 
 
 if __name__ == "__main__":
-    ONNX_FILE_PATH = 'resnet50.onnx'
-    # model = models.resnet50(pretrained=True)
-    # input = preprocess_image("turkish_coffee.jpg").cuda()
-    # model.eval()
-    # model.cuda()
+    model = models.resnet50(pretrained=True)
+    inp = preprocess_image("turkish_coffee.jpg").cuda()
+    print(inp.shape)
+    model.eval()
+    model.cuda()
 
     # output = model(input)
     # print(output.shape)
     # postprocess(output)
 
     # # Convert the Pytorch Model to ONNX format
-    # torch.onnx.export(
-    #     model, input, ONNX_FILE_PATH, input_names=['input'],
-    #     output_names=['output'], export_params=True)
+    torch.onnx.export(
+        model, inp, ONNX_FILE_PATH, input_names=['input'],
+        output_names=['output'], export_params=True)
 
     # onnx_model = onnx.load(ONNX_FILE_PATH)
     # onnx.checker.check_model(onnx_model)
