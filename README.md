@@ -35,3 +35,19 @@ if os.path.isfile(ENGINE_FILE_PATH):
         engine = runtime.deserialize_cuda_engine(f.read())
 
 ```
+
+<b><i>2020-11-11:  </i></b>  
+Description:  
+Got an error when allocating memory.
+```
+...
+    self.stream = cuda.Stream()
+pycuda._driver.LogicError: explicit_context_dependent failed: invalid device context - no currently active context?
+```
+Solution:  
+```
+import pycuda.driver as cuda
+## Add autoinit to init pycuda driver
+import pycuda.autoinit
+
+```
