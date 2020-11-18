@@ -51,3 +51,4 @@ import pycuda.driver as cuda
 import pycuda.autoinit
 
 ```
+(pycuda.autoinit would take a some GPU memory)
