@@ -1,0 +1,4 @@
+numpy
+Pillow==6.2.2
+pycuda
+tensorflow==1.15.3
