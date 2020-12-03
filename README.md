@@ -52,3 +52,19 @@ import pycuda.autoinit
 
 ```
 (pycuda.autoinit would take a some GPU memory)
+
+<b><i>2020-12-03:  </i></b>  
+Description:  
+parse ONNX file
+```
+RuntimeError: Failed to export an ONNX attribute, since it's not constant, please try to make things (e.g., kernel size) static if possible
+```
+Solution:  
+find the error raising place from .../envs/pytorch1.6/lib/python3.7/site-packages/torch/onnx/
+```
+print(v.node())
+# to get the error node location. 
+# avg = F.avg_pool2d(feat32, feat32.size()[2:])
+# add print(feat32.size()[2:]) to get the value
+# set it to constant
+```
