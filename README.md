@@ -55,7 +55,7 @@ import pycuda.autoinit
 
 <b><i>2020-12-03:  </i></b>  
 Description:  
-parse ONNX file
+transfer pytorch model to ONNX file
 ```
 RuntimeError: Failed to export an ONNX attribute, since it's not constant, please try to make things (e.g., kernel size) static if possible
 ```
