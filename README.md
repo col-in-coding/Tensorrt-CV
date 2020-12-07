@@ -68,3 +68,19 @@ print(v.node())
 # add print(feat32.size()[2:]) to get the value
 # set it to constant
 ```
+
+<b><i>2020-12-07:  </i></b>  
+Description:  
+Parsing ONNX in tensorrt
+```
+[TensorRT] INTERNAL ERROR: Assertion failed: cublasStatus == CUBLAS_STATUS_SUCCESS
+../rtSafe/cublas/cublasLtWrapper.cpp:279
+Aborting...
+[TensorRT] ERROR: ../rtSafe/cublas/cublasLtWrapper.cpp (279) - Assertion Error in getCublasLtHeuristic: 0 (cublasStatus == CUBLAS_STATUS_SUCCESS)
+```
+Solution:  
+This is caused by cublas LT 10.2 BUG. Solved by disabling cublasLT
+```
+trtexec --onnx=xxx.onnx --tacticSources=-cublasLt,+cublas --workspace=2048 --fp16 --saveEngine=xxx.engine
+```
+
