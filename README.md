@@ -84,3 +84,9 @@ This is caused by cublas LT 10.2 BUG. Solved by disabling cublasLT
 trtexec --onnx=xxx.onnx --tacticSources=-cublasLt,+cublas --workspace=2048 --fp16 --saveEngine=xxx.engine
 ```
 
+<b><i>2020-12-08:  </i></b>  
+Description:  
+Allocate Buffer. Memory location bindings should be in order of binding index from engine. 
+Sometimes, it is not the same as input/output order
+
+
