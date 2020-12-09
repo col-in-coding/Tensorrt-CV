@@ -10,8 +10,9 @@ import cv2
 import os.path
 import time
 
-ONNX_FILE_PATH = "./iresnet100.onnx"
-ENGINE_FILE_PATH = "./iresnet100.engine"
+BATSZ = 16
+ONNX_FILE_PATH = "./iresnet100_batsz16.onnx"
+ENGINE_FILE_PATH = "./iresnet100_batsz16.engine"
 LOGGER = trt.Logger()
 
 
@@ -92,18 +93,22 @@ if __name__ == "__main__":
     origin = np.random.randint(0, 255, image_shape).astype('uint8')
 
     x = cv2.cvtColor(origin, cv2.COLOR_BGR2RGB)
-    x = np.transpose(x, (2, 0, 1))
+    x = np.ascontiguousarray(x.transpose(2, 0, 1))
     x = np.expand_dims(x, 0)
+    x = np.repeat(x, BATSZ, axis=0)
+    print(x.shape)
     x = torch.from_numpy(x)
     x = (x - 127.5) / 128.0
 
     x_cu = x.cuda()
+    torch_embedding = torch_model(x_cu).cpu().detach().numpy()
+    print(torch_embedding.shape)
+
     # 15.38s, 1.7G
     # start = time.time()
     # for i in range(1000):
     #     torch_embedding = torch_model(x_cu).cpu().detach().numpy()
     # print("time consuming: ", time.time() - start) 
-    # print(torch_embedding.shape)
 
     if not os.path.isfile(ONNX_FILE_PATH):
         print("Export ONNX")
@@ -114,6 +119,7 @@ if __name__ == "__main__":
             input_names=['input'],
             output_names=['output'],
             export_params=True,
+            opset_version=11,
             verbose=True
         )
 
@@ -124,7 +130,7 @@ if __name__ == "__main__":
     # start = time.time()
     # for i in range(1000):
 
-    inputs[0].host = np.array(x, dtype=np.float32, order='C')
+    inputs[0].host = x.numpy()
     cuda.memcpy_htod_async(inputs[0].device, inputs[0].host, stream)
     context.execute_async_v2(
         bindings=bindings,
@@ -133,13 +139,12 @@ if __name__ == "__main__":
     cuda.memcpy_dtoh_async(outputs[0].host, outputs[0].device, stream)
     trt_outputs = [out.host for out in outputs]
     stream.synchronize()
-        # trt_outputs = trt_outputs.copy()
 
     # print("time consuming: ", time.time() - start)
     print(trt_outputs[0].shape)
     trt_embeddings = trt_outputs[0].reshape((-1, 512))
 
-    # print("MSE: ", np.square(torch_embedding - trt_embeddings).mean())
+    print("MSE: ", np.square(torch_embedding - trt_embeddings).mean())
 
 
 
