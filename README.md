@@ -55,7 +55,7 @@ import pycuda.autoinit
 
 <b><i>2020-12-03:  </i></b>  
 Description:  
-parse ONNX file
+transfer pytorch model to ONNX file
 ```
 RuntimeError: Failed to export an ONNX attribute, since it's not constant, please try to make things (e.g., kernel size) static if possible
 ```
@@ -68,3 +68,25 @@ print(v.node())
 # add print(feat32.size()[2:]) to get the value
 # set it to constant
 ```
+
+<b><i>2020-12-07:  </i></b>  
+Description:  
+Parsing ONNX in tensorrt
+```
+[TensorRT] INTERNAL ERROR: Assertion failed: cublasStatus == CUBLAS_STATUS_SUCCESS
+../rtSafe/cublas/cublasLtWrapper.cpp:279
+Aborting...
+[TensorRT] ERROR: ../rtSafe/cublas/cublasLtWrapper.cpp (279) - Assertion Error in getCublasLtHeuristic: 0 (cublasStatus == CUBLAS_STATUS_SUCCESS)
+```
+Solution:  
+This is caused by cublas LT 10.2 BUG. Solved by disabling cublasLT
+```
+trtexec --onnx=xxx.onnx --tacticSources=-cublasLt,+cublas --workspace=2048 --fp16 --saveEngine=xxx.engine
+```
+
+<b><i>2020-12-08:  </i></b>  
+Description:  
+Allocate Buffer. Memory location bindings should be in order of binding index from engine. 
+Sometimes, it is not the same as input/output order
+
+
