@@ -90,3 +90,10 @@ Allocate Buffer. Memory location bindings should be in order of binding index fr
 Sometimes, it is not the same as input/output order
 
 
+<b><i>2020-12-11:  </i></b>  
+Description:  
+When run tensorrt with saved engine
+```
+pycuda._driver.LogicError: cuMemcpyHtoDAsync failed: invalid argument
+```
+Solution: This may caused by input memory error. Check if the input dtype is Float64
