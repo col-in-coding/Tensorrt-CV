@@ -105,7 +105,8 @@ I got this error when using Tensorrt and PyTorch together. I used PyTorch GPU ca
 [TensorRT] ERROR: safeContext.cpp (184) - Cudnn Error in configure: 7 (CUDNN_STATUS_MAPPING_ERROR)
 [TensorRT] ERROR: FAILED_EXECUTION: std::exception
 ```
-I also found when splitting them to different processes, the error disappears. But in my case, I have a very large image data to be used in post-process, which would add extra latency during passing it between the processes.
+I also found when splitting them to different processes, the error disappears. But in my case, I have a very large image data to be used in post-process, which would add extra latency during passing it between the processes.  
+I tried to use cupy instead of PyTorch and also got this error ;(
 
 Solution: adding cuda context push and pop on the two ends of doing inference
 
