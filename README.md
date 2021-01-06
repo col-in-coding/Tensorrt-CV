@@ -99,6 +99,7 @@ pycuda._driver.LogicError: cuMemcpyHtoDAsync failed: invalid argument
 Solution: This may caused by input memory error. Check if the input dtype is Float64
 
 <b><i>2021-01-06:  </i></b>  
+Description:  
 I got this error when using Tensorrt and PyTorch together. I used PyTorch GPU calculation for the preprocessing.
 ```
 [TensorRT] ERROR: safeContext.cpp (184) - Cudnn Error in configure: 7 (CUDNN_STATUS_MAPPING_ERROR)
