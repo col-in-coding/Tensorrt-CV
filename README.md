@@ -1,3 +1,10 @@
+# About
+This implementation is totally for deployment concern. In most cases, we got an DNN model trained by python (like Pytorch) and the goal is low latency (measured by FPS) and high accuracy (measured by MSE) in product. Here, Tensorrt is in use.  
+
+For my expericence, the most efficient achievement is to convert Pytorch model to ONNX and use onnx parser in tensorrt, over rebuilding the whole net and loading the weights on tensorrt, particularly when the preprocess and postprocess are in consideration. The calculation of preprocess or postprocess will be treated as a part of the net, saved in tensorrt engine and runing on gpu.  
+
+But in some cases, there may have operator-unsupport issues (like grid_sampler) and not all operations are good for gpu (like inversing).
+
 # TensorRT 踩坑日志（Bullshit Diary）
 
 <b><i>2020-11-08:  </i></b>  
