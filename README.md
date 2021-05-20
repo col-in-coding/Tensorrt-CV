@@ -97,3 +97,30 @@ Allocate Buffer. Memory location bindings should be in order of binding index fr
 Sometimes, it is not the same as input/output order
 
 
+<b><i>2020-12-11:  </i></b>  
+Description:  
+When run tensorrt with saved engine
+```
+pycuda._driver.LogicError: cuMemcpyHtoDAsync failed: invalid argument
+```
+Solution: This may caused by input memory error. Check if the input dtype is Float64
+
+<b><i>2021-01-06:  </i></b>  
+Description:  
+I got this error when using Tensorrt and PyTorch together. I used PyTorch GPU calculation for the preprocessing.
+```
+[TensorRT] ERROR: safeContext.cpp (184) - Cudnn Error in configure: 7 (CUDNN_STATUS_MAPPING_ERROR)
+[TensorRT] ERROR: FAILED_EXECUTION: std::exception
+```
+I also found when splitting them to different processes, the error disappears. But in my case, I have a very large image data to be used in post-process, which would add extra latency during passing it between the processes.  
+I tried to use cupy instead of PyTorch and also got this error ;(
+
+Solution: adding cuda context push and pop on the two ends of doing inference
+
+```
+cuda.init()
+cuda_ctx = cuda.Device(gpu_id).make_context()
+cuda_ctx.push()
+... doing inferennce
+cuda_ctx.pop()
+```
