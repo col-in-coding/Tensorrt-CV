@@ -1,5 +1,0 @@
-numpy
-Pillow==6.2.2
-pycuda
-requests
-tensorflow==1.15.3

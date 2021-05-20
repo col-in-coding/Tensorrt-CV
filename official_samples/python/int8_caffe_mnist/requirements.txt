@@ -1,3 +1,0 @@
-numpy
-Pillow==6.2.2
-pycuda

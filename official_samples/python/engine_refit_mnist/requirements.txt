@@ -1,8 +1,0 @@
-numpy
--f https://download.pytorch.org/whl/torch_stable.html
-torch==1.5.0+cpu; python_version>="3" and platform_machine=="x86_64" and sys.platform=="linux"
-torchvision==0.6.0; python_version>="3" and platform_machine=="x86_64" and sys.platform=="linux"
-torch==1.2.0+cpu; python_version=="2.7" and platform_machine=="x86_64" and sys.platform=="linux2"
-torchvision==0.4.; python_version=="2.7" and platform_machine=="x86_64" and sys.platform=="linux2"
-Pillow==6.2.2
-pycuda

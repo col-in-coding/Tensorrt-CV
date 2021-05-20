@@ -1,5 +1,0 @@
--f https://download.pytorch.org/whl/torch_stable.html
-torch==1.4.0+cpu; platform_machine=="x86_64" and sys.platform=="linux"
-onnx==1.6.0
-numpy
-pycuda
