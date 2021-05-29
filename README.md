@@ -124,3 +124,18 @@ cuda_ctx.push()
 ... doing inferennce
 cuda_ctx.pop()
 ```
+
+<b><i>2021-05-29:  </i></b>  
+Description:  
+When I deserializing an saved engine that I build from different place and it faild.
+
+Solution: We first need to load all custom plugins shipped with TensorRT manually.
+
+```
+# Force init TensorRT plugins
+trt.init_libnvinfer_plugins(None,'')
+with open(engine_file_path, "rb") as f, \
+        trt.Runtime(self.trt_logger) as runtime:
+    engine = runtime.deserialize_cuda_engine(f.read())
+return engine
+```
