@@ -139,3 +139,14 @@ with open(engine_file_path, "rb") as f, \
     engine = runtime.deserialize_cuda_engine(f.read())
 return engine
 ```
+
+<b><i>2021-05-31:  </i></b>
+Description:
+Pytorch to onnx success, but onnx to tensorrt engine faild,and throw an error  
+```
+[05/28/2021-20:30:26] [I] [TRT] /training/colin/Github/TensorRT/parsers/onnx/ModelImporter.cpp:139: No importer registered for op: ScatterND. Attempting to import as plugin.
+[05/28/2021-20:30:26] [I] [TRT] /training/colin/Github/TensorRT/parsers/onnx/builtin_op_importers.cpp:3775: Searching for plugin: ScatterND, plugin_version: 1, plugin_namespace: 
+[05/28/2021-20:30:26] [E] [TRT] INVALID_ARGUMENT: getPluginCreator could not find plugin ScatterND version 1
+```
+
+Solution: ScatterND is for indexing, when you got operations like A[:, 0:2] = B. So the solotion is to substitute them with splits and concatinations.  
