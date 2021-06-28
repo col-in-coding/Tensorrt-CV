@@ -1,9 +1,12 @@
+import os
 import cv2
+import onnx
 import torch
 import torchvision
 import argparse
 import numpy as np
 from torch import nn
+import onnx_graphsurgeon as gs
 from pytorch.config import cfg_mnet, cfg_re50
 from pytorch.retinaface import RetinaFace
 from pytorch.prior_box import PriorBox
@@ -169,6 +172,32 @@ def resize_image_with_ratio(im, desired_size=1024):
     return ratio, new_im
 
 
+def append_nms(graph, num_classes, scoreThreshold, iouThreshold, keepTopK):
+    out_tensors = graph.outputs
+    bs = out_tensors[0].shape[0]
+
+    nms_attrs = {'shareLocation': True,
+                 'backgroundLabelId': -1,
+                 'numClasses': num_classes,
+                 'topK': 1024,
+                 'keepTopK': keepTopK,
+                 'scoreThreshold': scoreThreshold,
+                 'iouThreshold': iouThreshold,
+                 'isNormalized': True,
+                 'clipBoxes': True}
+
+    nms_num_detections = gs.Variable(name="nms_num_detections", dtype=np.int32, shape=(bs, 1))
+    nms_boxes = gs.Variable(name="nms_boxes", dtype=np.float32, shape=(bs, keepTopK, 4))
+    nms_scores = gs.Variable(name="nms_scores", dtype=np.float32, shape=(bs, keepTopK))
+    nms_classes = gs.Variable(name="nms_classes", dtype=np.float32, shape=(bs, keepTopK))
+
+    nms = gs.Node(op="BatchedNMSDynamic_TRT", attrs=nms_attrs, inputs=out_tensors, outputs=[nms_num_detections, nms_boxes, nms_scores, nms_classes])
+    graph.nodes.append(nms)
+    graph.outputs = [nms_num_detections, nms_boxes, nms_scores, nms_classes]
+
+    return graph
+
+
 class MyModel(nn.Module):
     def __init__(self, cfg):
         super(MyModel, self).__init__()
@@ -176,83 +205,53 @@ class MyModel(nn.Module):
 
         im_h = 1024
         im_w = 1024
-        self.im_height = im_h
-        self.im_width = im_w
-        self.scale = torch.Tensor([im_w, im_h, im_w, im_h])
-        self.scale1 = torch.Tensor([
-            im_w, im_h, im_w, im_h, im_w,
-            im_h, im_w, im_h, im_w, im_h
-        ])
-
         self.cfg = cfg
-        self.im_h = 1024
-        self.im_w = 1024
 
         # 先验框
         priorbox = PriorBox(cfg, image_size=(im_h, im_w))
         priors = priorbox.forward()
         self.prior_data = priors.data
 
-        self.tempA = torch.zeros(43008, 2)
-        self.tempB = torch.zeros(43008, 2)
-        self.scale = torch.Tensor([im_w, im_h, im_w, im_h])
+        self.mean = torch.Tensor((104.0, 117.0, 123.0))
 
     def preprocess(self, img):
-        mean = torch.Tensor((104.0, 117.0, 123.0))
         x = img.unsqueeze(0)
-        x = x - mean
+        x = x - self.mean
         x = x.transpose(1, 2).transpose(1, 3)
         return x
 
-    def postprocess(self, loc, conf, landms, confidence_threshold=0.7):
+    def postprocess(self, loc, conf):
         """
         人脸检测后处理部分只能batch_size为1
         """
-        # priors = self.prior_data
-        # variances = self.cfg['variance']
-        # # decode boxes
-        # loc = loc.reshape((43008, 4))
-        # boxes = torch.cat((
-        #     priors[:, :2] + loc[:, :2] * variances[0] * priors[:, 2:],
-        #     priors[:, 2:] * torch.exp(loc[:, 2:] * variances[1])), 1)
+        priors = self.prior_data
+        variances = self.cfg['variance']
+        # decode boxes
+        loc = loc.reshape((43008, 4))
+        boxes = torch.cat((
+            priors[:, :2] + loc[:, :2] * variances[0] * priors[:, 2:],
+            priors[:, 2:] * torch.exp(loc[:, 2:] * variances[1])), 1)
 
-        # tempA = boxes[:, 0:2]
-        # tempB = boxes[:, 2:4]
-        # boxes = torch.cat((tempA - tempB/2, tempA + tempB/2), 1)
-        # boxes = boxes * self.scale
+        tempA = boxes[:, 0:2]
+        tempB = boxes[:, 2:4]
+        boxes = torch.cat((tempA - tempB/2, tempA + tempB/2), 1)
 
-        # # decode landmarks
-        landms = landms.reshape((43008, 10))
-        # pre = landms.reshape((-1, 10))
-        # landms = torch.cat((
-        #     priors[:, :2] + pre[:, :2] * variances[0] * priors[:, 2:],
-        #     priors[:, :2] + pre[:, 2:4] * variances[0] * priors[:, 2:],
-        #     priors[:, :2] + pre[:, 4:6] * variances[0] * priors[:, 2:],
-        #     priors[:, :2] + pre[:, 6:8] * variances[0] * priors[:, 2:],
-        #     priors[:, :2] + pre[:, 8:10] * variances[0] * priors[:, 2:],
-        #     ), dim=1)
-        # landms = landms * self.scale1
-
-        # # ignore low scores (NonZero tensorrt not support)
         conf = conf.reshape((43008, 2))
         scores = conf[:, 1]
-        # inds = torch.where(scores > confidence_threshold)
-        boxes = loc.reshape((43008, 4))
-        # inds = torch.gt(scores, confidence_threshold)
-        # boxes = boxes[inds]
-        # landms = landms[inds]
-        # scores = scores[inds]
-        # return boxes
 
-        # (NMS tensorrt not support)
-        keep = torchvision.ops.nms(boxes, scores, NMS_THRESHOLD)
-        landms = landms[keep]
-        boxes = boxes[keep]
-        scores = scores[keep]
-        return boxes, landms, scores
+        return boxes.reshape(1, 43008, 1, 4), scores.reshape(1, 43008, 1)
 
-    def forward(self, loc, conf, landms):
-        return self.postprocess(loc, conf, landms)
+    def test(self, boxes, scores):
+        boxes = boxes.unsqueeze(0)
+        scores = scores.unsqueeze(0)
+        boxes = boxes.unsqueeze(2)
+        scores = scores.unsqueeze(2)
+        return boxes, scores
+
+    def forward(self, imgs):
+        x = self.preprocess(imgs)
+        loc, conf, _ = self.retinaface(x)
+        return self.postprocess(loc, conf)
 
 
 def main(args):
@@ -266,38 +265,44 @@ def main(args):
     torch_model.retinaface.eval()
     print('Finished loading model!')
 
-    # image_path = "../data/buffett.png"
-    # img_raw = cv2.imread(image_path, cv2.IMREAD_COLOR)
-    # _, resized_img = resize_image_with_ratio(img_raw)
-    # img = resized_img.astype(np.float32, copy=False)
-    # img = torch.from_numpy(img)
-
-    loc = torch.rand((1, 43008, 4))
-    conf = torch.rand((1, 43008, 2))
-    landms = torch.rand((1, 43008, 10))
+    # imgs = torch.rand((args.batch_size, 1024, 1024, 3), dtype=torch.float32)
+    img = torch.rand((1024, 1024, 3), dtype=torch.float32)
 
     with torch.no_grad():
-        boxes, _, _ = torch_model(loc, conf, landms)
-
-    print(boxes.shape)
-
-    # boxes = outputs
-    # print(boxes.shape)
-    # dets, lmdms = postprocess(outputs)
-    # print(dets.shape, lmdms.shape)
+        res = torch_model(img)
+    print(res[0].shape)
 
     if args.build_onnx:
+        print("build onnx...", args.onnx_path)
         torch.onnx.export(
             torch_model,
-            (loc, conf, landms),
+            img,
             args.onnx_path,
             export_params=True,
-            input_names=['input1', 'input2', 'input3'],
-            output_names=['output'],
+            input_names=['input'],
+            output_names=['output1', 'output2'],
             verbose=True,
             opset_version=11,
             enable_onnx_checker=False
         )
+
+        print("add nms...")
+        graph = gs.import_onnx(onnx.load(args.onnx_path))
+        graph = append_nms(
+            graph, num_classes=1, scoreThreshold=0.95,
+            iouThreshold=0.4, keepTopK=20)
+
+        # Remove unused nodes, and topologically sort the graph.
+        graph.cleanup().toposort().fold_constants().cleanup()
+
+        # Export the onnx graph from graphsurgeon
+        out_name = args.onnx_path[:-5]+'_nms.onnx'
+        onnx.save_model(gs.export_onnx(graph), out_name)
+
+        print("Saving the ONNX model to {}".format(out_name))
+
+    if args.build_engine:
+        os.system(f"trtexec --onnx=test_nms.onnx --saveEngine={args.engine_path} --fp16 --workspace=16000")
 
 
 if __name__ == "__main__":
@@ -306,9 +311,10 @@ if __name__ == "__main__":
                         type=str, help='Trained state_dict file path to open')
     parser.add_argument('--network', default='resnet50', help='Backbone network mobile0.25 or resnet50')
     parser.add_argument('--build-onnx', action="store_true")
-    parser.add_argument("--onnx-path", type=str, default='test.onnx', help="path to pytorch model checkpoint")
-
+    parser.add_argument("--onnx-path", type=str, default='test.onnx')
+    parser.add_argument('--build-engine', action="store_true")
+    parser.add_argument("--engine-path", type=str, default='test.engine')
     args = parser.parse_args()
     main(args)
 
-# trtexec --onnx=test.onnx --saveEngine=test.engine --fp16 --workspace=2048
+# trtexec --onnx=test_nms.onnx --saveEngine=test.engine --fp16 --workspace=16000
