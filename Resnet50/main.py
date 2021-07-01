@@ -1,4 +1,5 @@
 import cv2
+import time
 import torch
 import argparse
 import numpy as np
@@ -6,6 +7,11 @@ from torchvision import models
 from albumentations import Resize, Compose
 from albumentations.pytorch.transforms import ToTensor
 from albumentations.augmentations.transforms import Normalize
+
+import sys
+from os.path import abspath, join, dirname
+sys.path.insert(0, join(abspath(dirname(__file__)), '..'))
+from python_lib.resnet import Resnet
 
 
 def preprocess_image(img_path):
@@ -49,16 +55,11 @@ def postprocess(output_data):
 
 def main(args):
     inp = preprocess_image("turkish_coffee.jpg")
-    print(inp.shape)
     model = models.resnet50(pretrained=True)
     model.eval()
-    with torch.no_grad():
-        output = model(inp)
-        print(output.shape)
-        postprocess(output)
 
     if args.build_onnx:
-        print("build onnx ...")
+        print("===> build onnx ...")
         dynamic_axes = {"input": {0: "batch"}, "output": {0: "batch"}}
         torch.onnx.export(
             model,
@@ -70,6 +71,43 @@ def main(args):
             dynamic_axes=dynamic_axes
         )
 
+    if args.build_engine:
+        print("===> build tensorrt engine...")
+        Resnet.build_engine(
+            onnx_file_path=args.onnx_path, engine_file_path=args.engine_path,
+            dynamic_shape=[(1, 3, 224, 224), (2, 3, 224, 224), (16, 3, 224, 224)],
+            dynamic_batch_size=16)
+
+    if args.test:
+        # #############################################################
+        # Pytorch Runing Test
+        # with torch.no_grad():
+        #     output = model(inp)
+        #     print(output.shape)
+        #     postprocess(output)
+
+        # #############################################################
+        # Test Result
+        net = Resnet(args.engine_path)
+        inp = inp.numpy()
+        inp = inp.repeat(8, axis=0)
+        print(inp.shape)
+        outputs = net(np.ascontiguousarray(inp))
+        result = Resnet.postprocess(outputs)
+        print(result.shape)
+        postprocess(torch.from_numpy(result[0]).reshape(-1, 1000))
+
+        # #############################################################
+        # Time Evaluation
+        # 1000 round via V100 Test Result:
+        # time consumed for batch size 1 is 1.3s
+        # time consumed for batch size 8 is 3.12s
+        # time consumed for batch size 16 is 5.78s
+        start = time.time()
+        for _ in range(1000):
+            outputs = net(np.ascontiguousarray(inp))
+        print("===> time consumed: ", time.time() - start)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Resnet50")
@@ -77,6 +115,7 @@ if __name__ == "__main__":
     parser.add_argument('--build-onnx', action="store_true")
     parser.add_argument("--onnx-path", type=str, default='resnet50_dynamic_shape.onnx')
     parser.add_argument('--build-engine', action="store_true")
-    parser.add_argument("--engine-path", type=str, default='test.engine')
+    parser.add_argument("--engine-path", type=str, default='resnet50_dynamic_shape.engine')
+    parser.add_argument("--test", action="store_true")
     args = parser.parse_args()
     main(args)
