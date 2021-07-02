@@ -244,6 +244,7 @@ def check_keys(model, pretrained_state_dict):
 
 
 def postprocess(outputs, confidence_threshold=0.7, cfg=cfg_re50, device='cpu'):
+    # print(outputs[0].shape, outputs[1].shape, outputs[2].shape)
     loc = outputs[0].reshape((43008, 4))
     conf = outputs[1].reshape((43008, 2))
     landms = outputs[2].reshape((43008, 10))
@@ -282,9 +283,9 @@ def postprocess(outputs, confidence_threshold=0.7, cfg=cfg_re50, device='cpu'):
     landms = landms[keep]
     boxes = boxes[keep]
     scores = scores[keep]
-    dets = torch.hstack((boxes, scores.reshape(-1, 1)))
+    boxes = torch.hstack((boxes, scores.reshape(-1, 1)))
 
     # keep top-K faster NMS
-    dets = dets[:KEEP_TOP_K, :]
+    boxes = boxes[:KEEP_TOP_K, :]
     landms = landms[:KEEP_TOP_K, :]
-    return dets.cpu().numpy(), landms.cpu().numpy()
+    return boxes.cpu().numpy(), landms.cpu().numpy()

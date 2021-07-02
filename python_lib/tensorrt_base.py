@@ -35,8 +35,13 @@ class TensorrtBase:
         self.buffers = self._allocate_buffer(dynamic_factor)
 
     @classmethod
-    def build_engine(cls, onnx_file_path, engine_file_path, *, use_fp16=True,
-                     dynamic_shape=None, dynamic_batch_size=1):
+    def build_engine(cls,
+                     onnx_file_path,
+                     engine_file_path,
+                     *,
+                     use_fp16=True,
+                     dynamic_shape=None,
+                     dynamic_batch_size=1):
         """Build TensorRT Engine
 
         :use_fp16: set mixed flop computation if the platform has fp16.
@@ -45,8 +50,7 @@ class TensorrtBase:
         """
         builder = trt.Builder(cls.trt_logger)
         network = builder.create_network(
-            1 << (int)(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
-        )
+            1 << (int)(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH))
         config = builder.create_builder_config()
         config.set_tactic_sources(trt.TacticSource.CUBLAS_LT)
 
@@ -91,8 +95,7 @@ class TensorrtBase:
         if engine:
             with open(engine_file_path, "wb") as f:
                 f.write(engine.serialize())
-            print("===> Serialized Engine Saved at: ",
-                  engine_file_path)
+            print("===> Serialized Engine Saved at: ", engine_file_path)
         else:
             print("===> build engine error")
         return engine
@@ -137,9 +140,11 @@ class TensorrtBase:
                 outputs.append(HostDeviceMem(host_mem, device_mem))
         return inputs, outputs, bindings, stream
 
-    def do_inference(self, inf_in_list, *, binding_shape_map):
-        """
-        可以被重写，有些输出参数用不到
+    def do_inference(self, inf_in_list, *, binding_shape_map=None):
+        """Main function for inference
+
+        :inf_in_list: input list.
+        :binding_shape_map: {<binding_name>: <shape>}, leave it to None for fixed shape
         """
         inputs, outputs, bindings, stream = self.buffers
         if binding_shape_map:
@@ -153,12 +158,11 @@ class TensorrtBase:
             cuda.memcpy_htod_async(inputs[i].device, inputs[i].host, stream)
         # do inference
         # context.profiler = trt.Profiler()
-        self.context.execute_async_v2(
-            bindings=bindings, stream_handle=stream.handle)
+        self.context.execute_async_v2(bindings=bindings,
+                                      stream_handle=stream.handle)
         # copy data from device to host
         for i in range(len(outputs)):
-            cuda.memcpy_dtoh_async(
-                outputs[i].host, outputs[i].device, stream)
+            cuda.memcpy_dtoh_async(outputs[i].host, outputs[i].device, stream)
 
         stream.synchronize()
         trt_outputs = [out.host.copy() for out in outputs]
