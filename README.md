@@ -150,3 +150,23 @@ Pytorch to onnx success, but onnx to tensorrt engine faild,and throw an error
 ```
 
 Solution: ScatterND is for indexing, when you got operations like A[:, 0:2] = B. So the solotion is to substitute them with splits and concatinations.  
+
+<b><i>2021-07-05:  </i></b>  
+Description:
+This is caused by BatchNorm1d, upstreamed by full connection layer  
+```
+[TensorRT] ERROR: (Unnamed Layer* 11) [Shuffle]: at most one dimension may be inferred
+ERROR: Failed to parse the ONNX file.
+In node 1 (scaleHelper): UNSUPPORTED_NODE: Assertion failed: dims.nbDims == 4 || dims.nbDims == 5
+```
+
+Solution: From Pytorch documentation, the input of nn.BatchNorm1d could be (N, C, L) or (N, L). Unsqueeze the output of fc layer to (N, C, L), and it works.
+```
+...
+fc = nn.Linear(512 * block.expansion * self.fc_scale, num_features)
+features = nn.BatchNorm1d(num_features)
+...
+x = fc(x)
+x = x.unsqueeze(-1)
+x = features(x)
+```
