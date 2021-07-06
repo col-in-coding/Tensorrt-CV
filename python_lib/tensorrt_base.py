@@ -40,12 +40,12 @@ class TensorrtBase:
                      engine_file_path,
                      *,
                      use_fp16=True,
-                     dynamic_shape=None,
+                     dynamic_shapes={},
                      dynamic_batch_size=1):
         """Build TensorRT Engine
 
         :use_fp16: set mixed flop computation if the platform has fp16.
-        :dynamic_shape: [min, opt, max], default None represents not using dynamic.
+        :dynamic_shapes: {binding_name: (min, opt, max)}, default {} represents not using dynamic.
         :dynamic_batch_size: set it to 1 if use fixed batch size, else using max batch size
         """
         builder = trt.Builder(cls.trt_logger)
@@ -73,14 +73,16 @@ class TensorrtBase:
         # default = 1 for fixed batch size
         builder.max_batch_size = 1
 
-        if dynamic_shape and len(dynamic_shape) == 3:
-            print(f"===> using dynamic shape: {str(dynamic_shape)}")
+        if len(dynamic_shapes) > 0:
+            print(f"===> using dynamic shapes: {str(dynamic_shapes)}")
             builder.max_batch_size = dynamic_batch_size
             profile = builder.create_optimization_profile()
-            min_shape, opt_shape, max_shape = dynamic_shape
-            profile.set_shape(
-                network.get_input(0).name, min_shape, opt_shape, max_shape)
-            # profile.set_shape(network.get_input(0).name, (1, 3, 224, 224), (2, 3, 224, 224), (16, 3, 224, 224))
+
+            for binding_name, dynamic_shape in dynamic_shapes.items():
+                min_shape, opt_shape, max_shape = dynamic_shape
+                profile.set_shape(
+                    binding_name, min_shape, opt_shape, max_shape)
+
             config.add_optimization_profile(profile)
 
         # Remove existing engine file

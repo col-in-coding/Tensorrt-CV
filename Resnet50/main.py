@@ -73,9 +73,10 @@ def main(args):
 
     if args.build_engine:
         print("===> build tensorrt engine...")
+        dynamic_shapes = {"input": ((1, 3, 224, 224), (16, 3, 224, 224), (16, 3, 224, 224))}
         Resnet.build_engine(
             onnx_file_path=args.onnx_path, engine_file_path=args.engine_path,
-            dynamic_shape=[(1, 3, 224, 224), (2, 3, 224, 224), (16, 3, 224, 224)],
+            dynamic_shapes=dynamic_shapes,
             dynamic_batch_size=16)
 
     if args.test:
@@ -90,7 +91,7 @@ def main(args):
         # Test Result
         net = Resnet(args.engine_path)
         inp = inp.numpy()
-        inp = inp.repeat(8, axis=0)
+        inp = inp.repeat(16, axis=0)
         print(inp.shape)
         outputs = net(np.ascontiguousarray(inp))
         result = Resnet.postprocess(outputs)
