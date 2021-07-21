@@ -11,6 +11,9 @@ For my expericence, the most efficient achievement is to convert Pytorch model t
 
 But in some cases, there may have operator-unsupport issues (like grid_sampler) and not all operations are good for gpu (like inversing).
 
+## Articles
+[PyTorch 转 TensorRT 模型部署 - Dynamic Shape (Batch Size)](https://zhuanlan.zhihu.com/p/387853124)
+
 # TensorRT 踩坑日志（Bullshit Diary）
 
 <b><i>2020-11-08:  </i></b>  
