@@ -153,3 +153,20 @@ x = fc(x)
 x = x.unsqueeze(-1)
 x = features(x)
 ```
+
+<b><i>2022-03-09:  </i></b>
+Description:
+Failed to parse onnx file.
+```
+UNSUPPORTED_NODE: Assertion failed: (transformationMode == "asymmetric" || transformationMode == "pytorch_half_pixel" || transformationMode == "half_pixel") && "TensorRT only supports half pixel, pytorch half_pixel, and asymmetric tranformation mode for linear resizes when scales are provided!"
+```
+
+Solution:
+I got this error because of the function `F.interpolate`, due to `scale_factor` being converted to Double Type that is not allowed in TensorRT convertion.
+One of the solution is to calculating the final `size` instead of `scale_factor` during interpolation.
+```
+# For my case
+F.interpolate(i, scale_factor=2, mode='bilinear', align_corners=True)
+# Could be rewrite as (the input is x)
+F.interpolate(x, size=[int(2 * x.shape[2]), int(2 * x.shape[3])], mode='bilinear', align_corners=True)
+```
