@@ -154,8 +154,8 @@ x = x.unsqueeze(-1)
 x = features(x)
 ```
 
-<b><i>2022-03-09:  </i></b>
-Description:  
+<b><i>2022-03-09:  </i></b>  
+Description:
 Failed to parse onnx file.
 ```
 UNSUPPORTED_NODE: Assertion failed: (transformationMode == "asymmetric" || transformationMode == "pytorch_half_pixel" || transformationMode == "half_pixel") && "TensorRT only supports half pixel, pytorch half_pixel, and asymmetric tranformation mode for linear resizes when scales are provided!"
