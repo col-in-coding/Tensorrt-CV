@@ -170,3 +170,18 @@ F.interpolate(i, scale_factor=2, mode='bilinear', align_corners=True)
 # Could be rewrite as (the input is x)
 F.interpolate(x, size=[int(2 * x.shape[2]), int(2 * x.shape[3])], mode='bilinear', align_corners=True)
 ```
+
+<b><i>2022-03-21:  </i></b>  
+Description:
+Failed to generate onnx file.  
+```
+RuntimeError: Failed to export an ONNX attribute 'onnx::Gather', since it's not constant, please try to make things (e.g., kernel size) static if possible
+```
+
+Solution:
+This error is usually caused by non-static input `size` of the funcations like `F.interpolate`, `F.avg_pool2d`.
+```
+# For my case
+# atten = F.avg_pool2d(feat, feat.size()[2:]) # non-static size
+atten = F.avg_pool2d(feat, (16, 16)) # static size
+```
