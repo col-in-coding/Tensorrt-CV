@@ -63,7 +63,7 @@ class TensorrtBase:
         # parse ONNX
         parser = trt.OnnxParser(network, cls.trt_logger)
         with open(onnx_file_path, 'rb') as model:
-            if not parser.parse(model.read()):
+            if not parser.parse(model.read(), path=onnx_file_path):
                 print('ERROR: Failed to parse the ONNX file.')
                 for error in range(parser.num_errors):
                     print(parser.get_error(error))
@@ -95,6 +95,7 @@ class TensorrtBase:
         print("===> Creating Tensorrt Engine...")
         engine = builder.build_engine(network, config)
         if engine:
+            print("===> Serializing engine...")
             with open(engine_file_path, "wb") as f:
                 f.write(engine.serialize())
             print("===> Serialized Engine Saved at: ", engine_file_path)
