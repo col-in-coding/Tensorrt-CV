@@ -201,7 +201,7 @@ https://docs.nvidia.com/deeplearning/tensorrt/api/python_api/parsers/Onnx/pyOnnx
 Description:  
 tensorrt inference error  
 ```
-[10/31/2022-14:09:49] [TRT] [E] 3: [executionContext.cpp::resolveSlots::1541] Error Code 3: API Usage Error (Parameter check failed at: runtime/api/executionContext.cpp::resolveSlots::1541, condition: allInputDimensionsSpecified(routine)
+[TRT] [E] 3: [executionContext.cpp::resolveSlots::1541] Error Code 3: API Usage Error (Parameter check failed at: runtime/api/executionContext.cpp::resolveSlots::1541, condition: allInputDimensionsSpecified(routine)
 ```
 
 Solution:  
