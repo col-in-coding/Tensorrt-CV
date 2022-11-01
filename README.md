@@ -178,7 +178,7 @@ Failed to generate onnx file.
 RuntimeError: Failed to export an ONNX attribute 'onnx::Gather', since it's not constant, please try to make things (e.g., kernel size) static if possible
 ```
 
-Solution:
+Solution:  
 This error is usually caused by non-static input `size` of the funcations like `F.interpolate`, `F.avg_pool2d`.
 ```
 # For my case
@@ -187,7 +187,7 @@ atten = F.avg_pool2d(feat, (16, 16)) # static size
 ```
 
 <b><i>2022-09-13:  </i></b>  
-Description:
+Description:  
 Failed to parse onnx file when build tensorrt engine
 ```
 [TRT] [E] onnx2trt_utils.cpp:1577: Failed to open file: 10356
@@ -196,5 +196,15 @@ Failed to parse onnx file when build tensorrt engine
 Solution:
 When loading external data, path is required for onnx parser.
 https://docs.nvidia.com/deeplearning/tensorrt/api/python_api/parsers/Onnx/pyOnnx.html#tensorrt.OnnxParser.parse
+
+<b><i>2022-10-31:  </i></b>  
+Description:  
+tensorrt inference error  
+```
+[TRT] [E] 3: [executionContext.cpp::resolveSlots::1541] Error Code 3: API Usage Error (Parameter check failed at: runtime/api/executionContext.cpp::resolveSlots::1541, condition: allInputDimensionsSpecified(routine)
+```
+
+Solution:  
+Context must set shape for dynamic shape
 
 
