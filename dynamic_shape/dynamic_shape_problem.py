@@ -1,9 +1,9 @@
 import argparse
 import torch
-import os
 import numpy as np
 import pycuda.driver as cuda
 import tensorrt as trt
+import time
 
 
 class MyModel(torch.nn.Module):
@@ -286,3 +286,5 @@ if __name__ == "__main__":
                 trt_out = trt_out[:output_size]
                 trt_out = trt_out.reshape(y.shape)
                 print(f"===> test for height: {height}, width: {width}, MSE: {np.square(trt_out - y.numpy()).mean()}")
+
+    # time.sleep(10)
