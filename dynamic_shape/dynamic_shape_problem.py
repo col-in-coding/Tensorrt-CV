@@ -4,6 +4,7 @@ import numpy as np
 import pycuda.driver as cuda
 import tensorrt as trt
 import time
+import os
 
 
 class MyModel(torch.nn.Module):
