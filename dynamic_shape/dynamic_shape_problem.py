@@ -86,7 +86,9 @@ class TRTModel:
         config.set_tactic_sources(trt.TacticSource.CUBLAS_LT)
 
         # Default workspace is 2G
-        config.max_workspace_size = 20 << 30
+        config.max_workspace_size = 2 << 30
+        # Uncomment this, To Solve Tensorrt BUG with Dynamic shape, from V8.5.1
+        # config.set_preview_feature(trt.PreviewFeature.FASTER_DYNAMIC_SHAPES_0805, True)
 
         if builder.platform_has_fast_fp16 and use_fp16:
             config.set_flag(trt.BuilderFlag.FP16)
