@@ -15,4 +15,4 @@ git clone https://huggingface.co/bert-base-uncased
 run `python torch2onnx.py` to generate onnx model, and run `python onnxrun.py` for onnxruntime-gpu inference.
 
 ## Build Tensorrt Engine
-run `python `
+run `python onnx2trt.py` to build tensorrt engine and do inference.

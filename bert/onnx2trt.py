@@ -1,3 +1,4 @@
+import time
 import onnx
 from onnxsim import simplify
 from model import BertForMaskedLMTRT
@@ -44,3 +45,13 @@ if __name__ == "__main__":
     trt_outputs = trt_model(input_ids.numpy(), attention_mask.numpy(), token_type_ids.numpy())
     logits = trt_outputs[0]
     validate(logits, mask_index, tokenizer, text)
+
+    print("-------------------------------- timing")
+    # warmup
+    for _ in range(100):
+        trt_outputs = trt_model(input_ids.numpy(), attention_mask.numpy(), token_type_ids.numpy())
+    runs = 100
+    start_time = time.time()
+    for _ in range(runs):
+        trt_outputs = trt_model(input_ids.numpy(), attention_mask.numpy(), token_type_ids.numpy())
+    print("time avg: ", (time.time() - start_time) / runs)
