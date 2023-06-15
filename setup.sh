@@ -5,6 +5,6 @@ export LD_LIBRARY_PATH="${TRT_LIBPATH}:/usr/local/cuda/lib64"
 # Tensorrt OSS
 export TRT_OSSPATH='/workspace/TensorRT'
 
-# Tensorrt Plugin
+# # Tensorrt Plugin
 # export PLUGIN_LIBS="$TRT_OSSPATH/build/out/libnvinfer_plugin.so"
-# export LD_PRELOAD=${PLUGIN_LIBS}
+# export LD_PRELOAD=${LD_PRELOAD}:${PLUGIN_LIBS}

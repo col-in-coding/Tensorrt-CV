@@ -1,13 +1,13 @@
-
 # 适配Tensorrt V8.4
 # 使用NVIDIA官方提供的cuda-python代替原先的pycuda，（cuda runtime分离）
 # 支持Multi profile，每个profile的每个binding都需要单独开辟显存
-# 
+#
 import numpy as np
 import tensorrt as trt
 from cuda import cudart
 
 DEBUG = False
+
 
 class TensorrtBaseV2:
 
@@ -18,7 +18,8 @@ class TensorrtBaseV2:
         self.engine = self._load_engine(plan_file_path)
         self.nBinding = self.engine.num_bindings
         self.nProfile = self.engine.num_optimization_profiles
-        self.nInputBinding = np.sum([self.engine.binding_is_input(i) for i in range(self.nBinding)])
+        self.nInputBinding = np.sum(
+            [self.engine.binding_is_input(i) for i in range(self.nBinding)])
         self.nOutputBinding = self.nBinding - self.nInputBinding
         self.nInput = self.nInputBinding // self.nProfile
         self.nOutput = self.nOutputBinding // self.nProfile
@@ -28,7 +29,7 @@ class TensorrtBaseV2:
         if DEBUG:
             print("===> num of profiles: ", self.nProfile)
             print("===> nBindingPerProfile: ", self.nBindingPerProfile)
-    
+
     @classmethod
     def build_engine(cls,
                      onnx_file_path,
@@ -48,7 +49,8 @@ class TensorrtBaseV2:
         config = builder.create_builder_config()
         # config.set_tactic_sources(trt.TacticSource.CUBLAS_LT)
 
-        config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, workspace << 30)
+        config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE,
+                                     workspace << 30)
 
         if builder.platform_has_fast_fp16 and use_fp16:
             config.set_flag(trt.BuilderFlag.FP16)
@@ -69,8 +71,8 @@ class TensorrtBaseV2:
             for input_idx, dynamic_shape in dynamic_shapes.items():
                 inputTi = network.get_input(input_idx)
                 min_shape, opt_shape, max_shape = dynamic_shape
-                iprofile.set_shape(
-                    inputTi.name, min_shape, opt_shape, max_shape)
+                iprofile.set_shape(inputTi.name, min_shape, opt_shape,
+                                   max_shape)
             config.add_optimization_profile(iprofile)
 
         print("===> Building serialized network...")
@@ -90,7 +92,8 @@ class TensorrtBaseV2:
         print("===> load engine: ", plan_file_path)
         with open(plan_file_path, "rb") as f:
             engineString = f.read()
-            engine = trt.Runtime(self.trt_logger).deserialize_cuda_engine(engineString)
+            engine = trt.Runtime(
+                self.trt_logger).deserialize_cuda_engine(engineString)
         return engine
 
     def _allocate_buffer(self, profiles_max_shapes):
@@ -116,7 +119,7 @@ class TensorrtBaseV2:
                 nbytes = self._get_nbytes(shape, dtype)
                 bufferD.append(cudart.cudaMalloc(nbytes)[1])
         return bufferD
-    
+
     def _get_nbytes(self, shape, dtype):
         return np.empty(shape, dtype=dtype).nbytes
 
@@ -141,15 +144,22 @@ class TensorrtBaseV2:
         assert self.context.all_binding_shapes_specified
         if DEBUG:
             for i in range(self.nBinding):
-                print(f"Bind:{i}", self.engine.get_binding_dtype(i), self.engine.get_binding_shape(i), self.context.get_binding_shape(i), self.engine.get_binding_name(i))
+                print(f"Bind:{i}", self.engine.get_binding_dtype(i),
+                      self.engine.get_binding_shape(i),
+                      self.context.get_binding_shape(i),
+                      self.engine.get_binding_name(i))
 
         bufferD_context_inp = [int(0)] * self.nBinding
         for i in range(self.nBindingPerProfile):
-            bufferD_context_inp[bindingBias + i] = self.bufferD[bindingBias + i]
+            bufferD_context_inp[bindingBias + i] = self.bufferD[bindingBias +
+                                                                i]
 
         # 将input数据拷贝到对应的显存地址
         for i in range(self.nInput):
-            cudart.cudaMemcpyAsync(bufferD_context_inp[bindingBias + i], bufferH[i].ctypes.data, bufferH[i].nbytes, cudart.cudaMemcpyKind.cudaMemcpyHostToDevice, stream)
+            cudart.cudaMemcpyAsync(
+                bufferD_context_inp[bindingBias + i], bufferH[i].ctypes.data,
+                bufferH[i].nbytes,
+                cudart.cudaMemcpyKind.cudaMemcpyHostToDevice, stream)
             # cudart.cudaMemcpy(bufferD_context_inp[bindingBias + i], bufferH[i].ctypes.data, bufferH[i].nbytes, cudart.cudaMemcpyKind.cudaMemcpyHostToDevice)
 
         # 执行推理
@@ -159,11 +169,13 @@ class TensorrtBaseV2:
 
         # 推理结果从GPU拷到CPU对应的bufferH
         for i in range(self.nInput, self.nBindingPerProfile):
-            cudart.cudaMemcpyAsync(bufferH[i].ctypes.data, bufferD_context_inp[bindingBias + i],
-                                   bufferH[i].nbytes, cudart.cudaMemcpyKind.cudaMemcpyDeviceToHost, stream)
+            cudart.cudaMemcpyAsync(
+                bufferH[i].ctypes.data, bufferD_context_inp[bindingBias + i],
+                bufferH[i].nbytes,
+                cudart.cudaMemcpyKind.cudaMemcpyDeviceToHost, stream)
             # cudart.cudaMemcpy(bufferH[i].ctypes.data, bufferD_context_inp[bindingBias + i],
             #                        bufferH[i].nbytes, cudart.cudaMemcpyKind.cudaMemcpyDeviceToHost)
         cudart.cudaStreamSynchronize(stream)
         cudart.cudaStreamDestroy(stream)
         # trt_outputs = [bufferH[i].copy() for i in range(self.nInput, self.nBindingPerProfile)]
-        return bufferH[self.nInput : self.nBindingPerProfile]
+        return bufferH[self.nInput:self.nBindingPerProfile]

@@ -4,6 +4,7 @@ import pycuda.driver as cuda
 
 
 class HostDeviceMem(object):
+
     def __init__(self, host_mem, device_mem):
         self.host = host_mem
         self.device = device_mem
@@ -80,8 +81,8 @@ class TensorrtBase:
 
             for binding_name, dynamic_shape in dynamic_shapes.items():
                 min_shape, opt_shape, max_shape = dynamic_shape
-                profile.set_shape(
-                    binding_name, min_shape, opt_shape, max_shape)
+                profile.set_shape(binding_name, min_shape, opt_shape,
+                                  max_shape)
 
             config.add_optimization_profile(profile)
 
