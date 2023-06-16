@@ -70,8 +70,8 @@ static inline pluginStatus_t checkParams(const NMSParameters& param)
     constexpr int32_t maxTopK{512 * 8};
     if (param.topK > maxTopK)
     {
-        // plugin::gLogError << "Invalid parameter: NMS topK (" << param.topK << ") exceeds limit (" << maxTopK << ")"
-        //                   << std::endl;
+        plugin::gLogError << "Invalid parameter: NMS topK (" << param.topK << ") exceeds limit (" << maxTopK << ")"
+                          << std::endl;
         return STATUS_BAD_PARAM;
     }
 

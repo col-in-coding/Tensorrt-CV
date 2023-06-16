@@ -46,3 +46,14 @@ cmake .. \
 -DBUILD_PARSERS=OFF -DBUILD_SAMPLES=OFF \
 -DTRT_OUT_DIR=`pwd`/out
 ```
+
+### 3. Transplant a Tensorrt-OSS plugin
+
+- Copy the plugin from Tensorrt-OSS to plugin folder in this repo
+- Call `REGISTER_TENSORRT_PLUGIN` to regist the plugin creator
+- Refuntion the CMakeLists.txt in it to create a shared library
+- Build a shared library
+- Check if the trt plugin can be registed correctly 
+    ```
+    python samples/workbanch/display_registed_plugins.py --so-path=xxx.so
+    ```
