@@ -11,8 +11,9 @@ For my expericence, the most efficient achievement is to convert Pytorch model t
 
 But in some cases, there may have operator-unsupport issues (like grid_sampler) and not all operations are good for gpu (like inversing).
 
-# Tensorrt Plugin
-Current Repo is aligned with Tensorrt OSS plugin. Folders included: cmake, include, third_party, plugin
+# Tensorrt Plugin   
+Current Repo is based on Tensorrt OSS, which consists of plugin, parsers and samples.    
+Parsers and samples are removed in this repo, and plugins are going to build in seperated shared libraries.
 
 # Build the plugins
 

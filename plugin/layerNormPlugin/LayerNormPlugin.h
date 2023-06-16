@@ -1,22 +1,11 @@
-/*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
- 
+#ifndef TRT_LAYERNORM_PLUGIN_H
+#define TRT_LAYERNORM_PLUGIN_H
+
 #include <vector>
 #include <string>
-#include <NvInfer.h>
+
+#include "NvInfer.h"
+#include "NvInferPlugin.h"
 
 // +------- Debug wrapper --------------------------------------------------------------------------
 #if DEBUG
@@ -43,21 +32,23 @@ private:
     std::string namespace_;
 
 public:
+    // used by PluginCreator
     LayerNormPlugin(const std::string& name) : name_(name)
     {
         WHERE_AM_I();
     }
-
+    // used by deserializing engine file
     LayerNormPlugin(const std::string& name, const void* data, size_t length) : name_(name)
     {
         WHERE_AM_I();
     }
-    
+    // default constructor is banned
     LayerNormPlugin() = delete;
 
     ~LayerNormPlugin()
     {
         WHERE_AM_I();
+        terminate();
     }
 
     size_t getSerializationSize() const noexcept override
@@ -89,31 +80,35 @@ public:
         return inputs[0];
     }
 
+    // TODO: support INT8
     bool supportsFormatCombination(int32_t pos, const PluginTensorDesc* inOut, int32_t nbInputs, int32_t nbOutputs) noexcept override
     {
+        // inOut[pos].format stands for I/O format
         WHERE_AM_I();
-        if(inOut[pos].format != TensorFormat::kLINEAR)
-        {
-            return false;
-        }
 
-        bool res = false;
         switch(pos)
         {
         case 0:
-            res = (inOut[pos].type == DataType::kFLOAT); break;
+            // Input tensor
+            return (inOut[0].format == TensorFormat::kLINEAR)
+                && (inOut[0].type == DataType::kFLOAT || inOut[0].type == DataType::kHALF);
         case 1:
-            res = inOut[pos].type == inOut[0].type; break;
-        default:// should NOT be here
-            res = false;
+        case 2:
+            // Gamma, Beta
+            return (inOut[pos].type == inOut[0].type);
+        case 3:
+            // Output tensor
+            return (inOut[3].type == inOut[0].type) && (inOut[3].format == inOut[0].format);
+        default:
+            return false;
         }
-        return res;
     }
     
     DataType getOutputDataType(int outputIndex, const DataType* inputTypes, int nbInputs) const noexcept override
     {
         WHERE_AM_I();
-        return DataType::kFLOAT;
+        // return inputTypes[0];
+        return DataType::kHALF;
     }
 
     void configurePlugin(const DynamicPluginTensorDesc* in, int32_t nbInputs,const DynamicPluginTensorDesc* out, int32_t nbOutputs) noexcept override
@@ -147,11 +142,13 @@ public:
         WHERE_AM_I();
         return PLUGIN_VERSION;
     }
+    // allocate memory and copy weights to GPU
     int initialize() noexcept override
     {
         WHERE_AM_I();
         return 0;
     }
+    // release memory
     void terminate() noexcept override
     {
         WHERE_AM_I();
@@ -176,7 +173,7 @@ private:
 public:
     LayerNormPluginCreator()
     {
-        // 定义 Plugin 的 attributes
+        // Define the attributes in Plugin
         fc_.nbFields = attr_.size();
         fc_.fields = attr_.data();
     }
@@ -228,3 +225,4 @@ public:
 
 } // namespace nvinfer1
 
+#endif
