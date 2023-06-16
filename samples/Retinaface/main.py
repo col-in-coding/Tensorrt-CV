@@ -7,7 +7,7 @@ import numpy as np
 from torch import nn
 import onnx_graphsurgeon as gs
 from pytorch.config import cfg_mnet, cfg_re50
-from pytorch.retinaface import RetinaFace, load_model
+from pytorch.retinaface import RetinaFace, load_model, decode
 from pytorch.retinaface import postprocess as torch_postprocess
 from pytorch.prior_box import PriorBox
 from utils import resize_image_with_ratio, draw_bbox
@@ -82,13 +82,31 @@ class MyModel(nn.Module):
         x = x.transpose(1, 2).transpose(1, 3)
         return x
 
-    def postprocess(self, loc, conf):
+    def postprocess(self, loc, conf, landms):
         """
-        人脸检测后处理部分只能batch_size为1
         """
+        boxes = self._decode_boxes(loc)
+        boxes = boxes.unsqueeze(2)
+        # print("===> boxes: ", boxes.shape)
+        scores = conf[:, :, 1]
+        scores = scores.unsqueeze(2)
+        # print("===> scores: ", scores.shape)
+        landmarks = self._decode_landmarks(landms)
+        landmarks = landmarks.unsqueeze(2)
+        # print("===> landmarks: ", landmarks.shape)
+        return boxes, scores, landmarks
+
+    def forward(self, imgs):
+        x = self.preprocess(imgs)
+        bbox_regressions, classifications, ldm_regressions = self.retinaface(x)
+        # print("===> bbox_regressions: ", bbox_regressions.shape)
+        # print("===> classifications: ", classifications.shape)
+        # print("===> ldm_regressions: ", ldm_regressions.shape)
+        return self.postprocess(bbox_regressions, classifications, ldm_regressions)
+
+    def _decode_boxes(self, loc):
         priors = self.prior_data
         variances = self.cfg['variance']
-        # decode boxes
         boxes = torch.cat(
             (priors[:, :, :2] + loc[:, :, :2] * variances[0] * priors[:, :, 2:],
              priors[:, :, 2:] * torch.exp(loc[:, :, 2:] * variances[1])), 2)
@@ -96,15 +114,19 @@ class MyModel(nn.Module):
         tempA = boxes[:, :, 0:2]
         tempB = boxes[:, :, 2:4]
         boxes = torch.cat((tempA - tempB / 2, tempA + tempB / 2), 2)
+        return boxes
 
-        scores = conf[:, :, 1]
-        return boxes.reshape(-1, 43008, 1, 4), scores.reshape(-1, 43008, 1)
-
-    def forward(self, imgs):
-        x = self.preprocess(imgs)
-        loc, conf, _ = self.retinaface(x)
-        return self.postprocess(loc, conf)
-
+    def _decode_landmarks(self, pre):
+        priors = self.prior_data
+        variances = self.cfg['variance']
+        landms = torch.cat((
+            priors[:, :, :2] + pre[:, :, :2] * variances[0] * priors[:, :, 2:],
+            priors[:, :, :2] + pre[:, :, 2:4] * variances[0] * priors[:, :, 2:],
+            priors[:, :, :2] + pre[:, :, 4:6] * variances[0] * priors[:, :, 2:],
+            priors[:, :, :2] + pre[:, :, 6:8] * variances[0] * priors[:, :, 2:],
+            priors[:, :, :2] + pre[:, :, 8:10] * variances[0] * priors[:, :, 2:],
+        ), dim=2)
+        return landms
 
 def main(args):
     if args.network == "mobile0.25":
@@ -159,27 +181,33 @@ def main(args):
         _, img1024 = resize_image_with_ratio(img)
 
         # ######  Pytorch Run  ##############################################
-        # imgs = torch.from_numpy(img1024).unsqueeze(0)
-        # with torch.no_grad():
-        #     x = torch_model.preprocess(imgs)
-        #     torch_out = torch_model.retinaface(x)
-        # batch_locs, batch_confs, batch_landms = torch_out
-        # boxes, landms = torch_postprocess([batch_locs[0], batch_confs[0], batch_landms[0]])
+        imgs = torch.from_numpy(img1024).unsqueeze(0)
+        torch_model(imgs)
+        exit(0)
+
+        with torch.no_grad():
+            x = torch_model.preprocess(imgs)
+            torch_out = torch_model.retinaface(x)
+        batch_locs, batch_confs, batch_landms = torch_out
+        bboxes, landms = torch_postprocess([batch_locs[0], batch_confs[0], batch_landms[0]], confidence_threshold=0.95)
+        print(img1024.shape)
+        draw_bbox(img1024, bboxes)
+        cv2.imwrite("test.png", img1024)
 
         # ######  TensorRT Run  ############################################
-        imgs = np.expand_dims(img1024, 0)
-        net = RetinafaceTrt(engine_file_path=args.engine_path)
-        outputs = net(imgs)
-        face_counts, bboxes, scores = RetinafaceTrt.postprocess(outputs)
-        draw_bbox(img, bboxes[0])
-        cv2.imwrite("test.png", img)
+        # imgs = np.expand_dims(img1024, 0)
+        # net = RetinafaceTrt(engine_file_path=args.engine_path)
+        # outputs = net(imgs)
+        # face_counts, bboxes, scores = RetinafaceTrt.postprocess(outputs)
+        # draw_bbox(img, bboxes[0])
+        # cv2.imwrite("test.png", img)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Retinaface')
     parser.add_argument(
         '-m', '--trained_model',
-        default='/training/colin/Github/Tensorrt-CV/models/retinaface/Resnet50_Final.pth',
+        default='/workspace/FaceShifter/model/pth/Resnet50_Final.pth',
         type=str, help='Trained state_dict file path to open')
     parser.add_argument('--network',
                         default='resnet50',

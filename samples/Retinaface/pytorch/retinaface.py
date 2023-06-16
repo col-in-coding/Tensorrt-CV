@@ -176,6 +176,7 @@ def decode(loc, priors, variances):
          priors[:, 2:] * torch.exp(loc[:, 2:] * variances[1])), 1)
     boxes[:, :2] -= boxes[:, 2:] / 2
     boxes[:, 2:] += boxes[:, :2]
+
     return boxes
 
 
