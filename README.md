@@ -13,7 +13,7 @@ But in some cases, there may have operator-unsupport issues (like grid_sampler) 
 
 # Tensorrt Plugin   
 Current Repo is based on Tensorrt OSS, which consists of plugin, parsers and samples.    
-Parsers and samples are removed in this repo, and plugins are going to build in seperated shared libraries.
+Parsers and samples are removed in this repo, and plugins are going to be build in seperated shared libraries.
 
 # Build the plugins
 
