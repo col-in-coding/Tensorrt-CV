@@ -1,0 +1,51 @@
+
+set(TARGET_NAME layernorm_plugin)
+set(SHARED_TARGET ${TARGET_NAME})
+set(TARGET_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+
+file(GLOB SRCS *.cpp)
+set(PLUGIN_SOURCES ${SRCS})
+file(GLOB CU_SRCS *.cu)
+set(PLUGIN_CU_SOURCES ${CU_SRCS})
+list(APPEND PLUGIN_SOURCES "${PLUGIN_CU_SOURCES}")
+
+add_library(${SHARED_TARGET} SHARED
+    ${PLUGIN_SOURCES}
+)
+
+target_include_directories(${SHARED_TARGET}
+    PUBLIC ${PROJECT_SOURCE_DIR}/include
+    PRIVATE ${PROJECT_SOURCE_DIR}/common
+    PUBLIC ${CUDA_INSTALL_DIR}/include
+    PRIVATE ${TARGET_DIR}
+)
+
+if (CUDA_VERSION VERSION_LESS 11.0)
+    target_include_directories(${SHARED_TARGET} PUBLIC ${CUB_ROOT_DIR})
+endif()
+
+set_target_properties(${SHARED_TARGET} PROPERTIES
+    CXX_STANDARD "14"
+    CXX_STANDARD_REQUIRED "YES"
+    CXX_EXTENSIONS "NO"
+    ARCHIVE_OUTPUT_DIRECTORY "${TRT_OUT_DIR}"
+    LIBRARY_OUTPUT_DIRECTORY "${TRT_OUT_DIR}"
+    RUNTIME_OUTPUT_DIRECTORY "${TRT_OUT_DIR}"
+)
+
+set_target_properties(${SHARED_TARGET} PROPERTIES LINK_FLAGS "-Wl,--exclude-libs,ALL -Wl,--version-script=${PLUGIN_EXPORT_MAP} -Wl,--no-undefined")
+
+set_target_properties(${SHARED_TARGET} PROPERTIES DEBUG_POSTFIX ${TRT_DEBUG_POSTFIX})
+
+set_target_properties(${SHARED_TARGET} PROPERTIES VERSION ${TRT_VERSION} SOVERSION ${TRT_SOVERSION} )
+
+set_property(TARGET ${SHARED_TARGET} PROPERTY CUDA_STANDARD 14)
+
+target_link_libraries(${SHARED_TARGET}
+    ${CUBLAS_LIB}
+    ${CUBLASLT_LIB}
+    ${CUDART_LIB}
+    ${CUDNN_LIB}
+    ${nvinfer_LIB_PATH}
+    ${CMAKE_DL_LIBS}
+)
