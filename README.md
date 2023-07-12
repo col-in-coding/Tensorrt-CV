@@ -28,11 +28,11 @@ git submodule update --init --recursive
 
 ### 2. Build plugin   
 
-Find cuda version.
+Check cuda version.
 ```
 nvcc --version
 ```
-Find cudnn version.
+Check cudnn version.
 ```
 whereis cudnn_version.h
 cat path_to_cudnn/cudnn_version.h
@@ -51,7 +51,7 @@ cmake .. \
 
 - Copy the plugin from Tensorrt-OSS to plugin folder in this repo
 - Call `REGISTER_TENSORRT_PLUGIN` to regist the plugin creator
-- Refuntion the CMakeLists.txt in it to create a shared library
+- Refunction the CMakeLists.txt in it to create a shared library
 - Build a shared library
 - Check if the trt plugin can be registed correctly 
     ```
