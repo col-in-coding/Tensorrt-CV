@@ -1,25 +1,8 @@
-/*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
- 
-#include "LayerNormPlugin.h"
-#include "LayerNormKernel.h"
-
 #include <iostream>
 #include <chrono>
 #include <thread>
+
+#include "LayerNormPlugin.h"
 
 using namespace nvinfer1;
 
@@ -30,8 +13,11 @@ int32_t LayerNormPlugin::enqueue(const PluginTensorDesc* inputDesc, const Plugin
     void const* const* inputs, void* const* outputs, void* workspace, cudaStream_t stream) noexcept
 {
     WHERE_AM_I();
-    const int nBlock = inputDesc[0].dims.d[0] * inputDesc[0].dims.d[1];
+    const int gridSize = inputDesc[0].dims.d[0] * inputDesc[0].dims.d[1];
+    const int nHiddenDimension = inputDesc[0].dims.d[2];
+    const float epsilon = 1e-6;
 
+    int status = -1;
     switch (inputDesc[0].type)
     {
     case DataType::kFLOAT:
@@ -43,29 +29,26 @@ int32_t LayerNormPlugin::enqueue(const PluginTensorDesc* inputDesc, const Plugin
         auto const gamma = static_cast<float const*>(inputs[1]);
         auto const beta = static_cast<float const*>(inputs[2]);
         auto output = static_cast<float *>(outputs[0]);
-        computeLayerNorm<float>(input, gamma, beta, output, stream, nBlock);
+        status = computeLayerNorm<float>(gridSize, nHiddenDimension, input, output, gamma, beta, epsilon, stream);
         break;
     }
-    // case DataType::kHALF:
-    // {
-    //     printf("===> using FP16 kernel\n");
-    //     auto const input = static_cast<half const*>(inputs[0]);
-    //     // for 
-    //     // float tmp = temp[tx];
-    //     // printf(" %f ", tmp);
-    //     auto const gamma = static_cast<half const*>(inputs[1]);
-    //     auto const beta = static_cast<half const*>(inputs[2]);
-    //     auto output = static_cast<half *>(outputs[0]);
-    //     computeLayerNorm<half>(input, gamma, beta, output, stream, nBlock);
-    //     break;
-    // }
+    case DataType::kHALF:
+    {
+        // printf("===> using FP16 kernel\n");
+        auto const input = static_cast<half const*>(inputs[0]);
+        auto const gamma = static_cast<half const*>(inputs[1]);
+        auto const beta = static_cast<half const*>(inputs[2]);
+        auto output = static_cast<half *>(outputs[0]);
+        status = computeLayerNorm<half>(gridSize, nHiddenDimension, input, output, gamma, beta, epsilon, stream);
+        break;
+    }
     default:
     {
-        printf("===> Datatype not implemented yet. %s, %s", __FILE__, __LINE__);
+        printf("Datatype not implemented yet. %s, %d", __FILE__, __LINE__);
         break;
     }
     }
-    return 0;
+    return status;
 }
 
 REGISTER_TENSORRT_PLUGIN(LayerNormPluginCreator);
