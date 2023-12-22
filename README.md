@@ -43,6 +43,7 @@ mkdir build
 cd build
 cmake .. \
 -DCUDA_VERSION=11.8.89 -DCUDNN_VERSION=8.7 \
+-DGPU_ARCHS=86 \
 -DBUILD_PARSERS=OFF -DBUILD_SAMPLES=OFF \
 -DTRT_OUT_DIR=`pwd`/out
 ```
