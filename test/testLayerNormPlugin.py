@@ -22,53 +22,62 @@ import tensorrt as trt
 # import nvtx
 
 soFilePath = '/workspace/Github/Tensorrt-CV/build/out/liblayernorm_plugin.so'
-nBS = 4
-nSL = 64
-nEmbedding = 768
 epsilon = 6e-6
-FP16 = False
+
 
 np.random.seed(97)
 
 
-def check(a, b, weak=False):
+def check(a, b, weak=False, checkEpsilon=1e-5):
     if weak:
-        return np.all(np.abs(a - b) < epsilon)
+        a = a.astype(np.float32)
+        b = b.astype(np.float32)
+        res = np.all(np.abs(a - b) < checkEpsilon)
     else:
-        return np.all(a == b)
+        res = np.all(a == b)
+    diff0 = np.max(np.abs(a - b))
+    diff1 = np.max(np.abs(a - b) / (np.abs(b) + checkEpsilon))
+    print("check:%s, absDiff=%f, relDiff=%f" % (res, diff0, diff1))
 
 
 def layerNormCPU(bufferH):
-    _x = bufferH[0]
-    gamma = bufferH[1]
-    beta = bufferH[2]
+    _x, gamma, beta = bufferH
+    nHiddenSize = bufferH[0].shape[2]
     _0 = np.mean(_x, 2)[:, :, np.newaxis]
     _1 = _x - _0
     _2 = _1 * _1
     _3 = np.mean(_2, 2)[:, :, np.newaxis]
-    _4 = np.array(epsilon, dtype=np.float16)
+    _4 = np.array(epsilon, dtype=np.float32)
     _5 = _4.reshape(1, 1, 1)
     _6 = _3 + _5
     _7 = np.sqrt(_6)
     _8 = 1 / _7  # 1/sqrt(...)
-    _9 = _1 * _8
-    _10 = _9 * gamma
-    _11 = _10 + beta
-    return _11
+    _9 = gamma
+    _10 = _9.reshape(1, 1, nHiddenSize)
+    _11 = _8 * _10  # gamma/sqrt(...)
+    _12 = _0 * _11  # bμ/sqrt(...)
+    _13 = beta
+    _14 = _13.reshape(1, 1, nHiddenSize)
+    _15 = _14 - _12  # beta-bμ/sqrt(...)
+    _16 = _x * _11  # bx/sqrt(...)
+    _17 = _15 + _16  # gamma(x-μ)/sqrt(...)+beta
+    _18 = _17.reshape(bufferH[0].shape[0], bufferH[0].shape[1], bufferH[0].shape[2])
+    return _18
 
 
 def getLayerNormPlugin():
     for c in trt.get_plugin_registry().plugin_creator_list:
         # print(c.name)
-        if c.name == 'MyLayerNorm':
-        # if c.name == 'LayerNorm':
+        # if c.name == 'MyLayerNorm':
+        if c.name == 'LayerNorm':
             return c.create_plugin(c.name, trt.PluginFieldCollection([]))
     return None
 
 
-def run():
-    logger = trt.Logger(trt.Logger.VERBOSE)
-    # logger = trt.Logger(trt.Logger.ERROR)
+def run(input_shape, isFP16=False):
+    nBS, nSL, nEmbedding = input_shape
+    # logger = trt.Logger(trt.Logger.VERBOSE)
+    logger = trt.Logger(trt.Logger.ERROR)
     trt.init_libnvinfer_plugins(logger, '')
     ctypes.cdll.LoadLibrary(soFilePath)
 
@@ -78,9 +87,9 @@ def run():
     config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, 6 << 30)
 
     inputTensorList = []
-    if FP16:
-        # config.set_flag(trt.BuilderFlag.FP16)
-        # config.set_flag(trt.BuilderFlag.STRICT_TYPES)
+    if isFP16:
+        config.set_flag(trt.BuilderFlag.FP16)
+        config.set_flag(trt.BuilderFlag.STRICT_TYPES)
         inputTensorList.append(
             network.add_input('inputT', trt.float16, [-1, -1, nEmbedding]))
         inputTensorList.append(
@@ -103,7 +112,7 @@ def run():
     # force trt to use fp16 mode
     # pluginLayer.precision = trt.DataType.HALF
 
-    output_layer = pluginLayer.get_output(0)
+    # output_layer = pluginLayer.get_output(0)
     # print("input type: ", pluginLayer.get_input(0).dtype)
     # print("output type: ", output_layer.dtype)
     # exit()
@@ -123,23 +132,24 @@ def run():
         for i in range(engine.num_bindings)
     ].count(trt.TensorIOMode.INPUT)
     nOutput = engine.num_bindings - nInput
-    for i in range(engine.num_bindings):
-        print(
-            engine.get_tensor_mode(engine.get_tensor_name(i)).name,
-            engine.get_binding_dtype(i), engine.get_binding_shape(i),
-            context.get_binding_shape(i))
+    # for i in range(engine.num_bindings):
+    #     print(
+    #         engine.get_tensor_mode(engine.get_tensor_name(i)).name,
+    #         engine.get_binding_dtype(i), engine.get_binding_shape(i),
+    #         context.get_binding_shape(i))
 
     bufferH = []
-    if FP16:
+    shape = nBS, nSL, nEmbedding
+    if isFP16:
         bufferH.append(
-            np.random.rand(nBS, nSL, nEmbedding).astype(np.float16) * 2 - 1)
+            np.random.rand(np.prod(shape)).reshape(shape).astype(np.float16) * 2 - 1)
         # gamma
         bufferH.append(np.random.rand(1, 1, nEmbedding).astype(np.float16))
         # beta
         bufferH.append(np.random.rand(1, 1, nEmbedding).astype(np.float16))
     else:
         bufferH.append(
-            np.random.rand(nBS, nSL, nEmbedding).astype(np.float32) * 2 - 1)
+            np.random.rand(np.prod(shape)).reshape(shape).astype(np.float32) * 2 - 1)
         # gamma
         bufferH.append(np.random.rand(1, 1, nEmbedding).astype(np.float32))
         # beta
@@ -168,16 +178,16 @@ def run():
                           bufferH[i].nbytes,
                           cudart.cudaMemcpyKind.cudaMemcpyDeviceToHost)
 
-    print("check result:")
-    # 99031.695
+
     temp1 = bufferH[-1]
-    print("===> gpu sum: ", temp1.sum())
-    # print(temp1)
     temp2 = layerNormCPU(bufferH[:3])
-    print("===> cpu sum:", temp2.astype(np.float32).sum())
+    # print(temp1.sum(), temp2.sum())
+    # print(bufferH[0])
+    # print(temp1)
     # print(temp2)
 
-    print(check(temp1, temp2, True), f"max diff={np.abs(temp1 - temp2).max()}")
+    # check(temp1, temp2, weak=False)
+    check(temp1, temp2, weak=True)
 
     for b in bufferD:
         cudart.cudaFree(b)
@@ -187,4 +197,7 @@ if __name__ == '__main__':
     os.system("rm -f ./*.trt")
     np.set_printoptions(precision=4, linewidth=200, suppress=True)
 
-    run()
+    # run((4, 64, 32), isFP16=True)
+    # run((4, 64, 256), isFP16=True)
+    run((4, 64, 1024), isFP16=False)
+    # run((4, 64, 768), isFP16=True)

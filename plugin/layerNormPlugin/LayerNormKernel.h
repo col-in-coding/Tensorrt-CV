@@ -4,11 +4,15 @@
 #include <cuda_runtime_api.h>
 #include <stdint.h>
 #include <cuda.h>
-#include "cuda_fp16.h"
+#include <cuda_fp16.h>
+#include <cub/cub.cuh>
+#include <algorithm>
 
 using half = __half;
 
 template <typename T>
-int32_t computeLayerNorm(T const *pInput, T const *gamma, T const *beta, T *pOutput, cudaStream_t stream, const int nBlock);
+int32_t computeLayerNorm(
+    const int gridSize, const int nHiddenDimension, T const *pInput, T *pOutput,
+    T const *gamma, T const *beta, const float epsilon, cudaStream_t stream);
 
 #endif

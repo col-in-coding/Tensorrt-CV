@@ -6,6 +6,7 @@
 
 #include "NvInfer.h"
 #include "NvInferPlugin.h"
+#include "LayerNormKernel.h"
 
 // +------- Debug wrapper --------------------------------------------------------------------------
 #if DEBUG

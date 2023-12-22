@@ -34,6 +34,7 @@ set(PLUGIN_CU_SOURCES)
 set(PLUGIN_LISTS
     batchedNMSPlugin
     layerNormPlugin
+    groupNormPlugin
 )
 
 include_directories(common common/kernels ${CMAKE_SOURCE_DIR}/third_party)

@@ -33,6 +33,8 @@ set_target_properties(${SHARED_TARGET} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${TRT_OUT_DIR}"
 )
 
+set_target_properties(${SHARED_TARGET} PROPERTIES COMPILE_FLAGS "${GENCODES} ${ENABLED_SMS}")
+
 set_target_properties(${SHARED_TARGET} PROPERTIES LINK_FLAGS "-Wl,--exclude-libs,ALL -Wl,--version-script=${PLUGIN_EXPORT_MAP} -Wl,--no-undefined")
 
 set_target_properties(${SHARED_TARGET} PROPERTIES DEBUG_POSTFIX ${TRT_DEBUG_POSTFIX})
